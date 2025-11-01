@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { apiHealth } from './api';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 
 // --- Puzzle Data ---
@@ -144,12 +145,15 @@ const Layout = ({ children }) => (
     </div>
 );
 
-const Header = ({ teamName }) => (
+const Header = ({ teamName, healthStatus }) => (
   <header className="fixed top-0 left-0 right-0 p-4 flex justify-between items-center z-20">
     <div className="font-pixel text-2xl text-white">
       <Link to="/">THE EYE</Link>
     </div>
-    {teamName && <div className="text-gray-400">Team: <span className="font-bold text-white">{teamName}</span></div>}
+    <div className="flex items-center gap-4">
+      <span className={`text-sm ${healthStatus === 'healthy' ? 'text-green-400' : 'text-yellow-400'}`}>API: {healthStatus || 'checking…'}</span>
+      {teamName && <div className="text-gray-400">Team: <span className="font-bold text-white">{teamName}</span></div>}
+    </div>
   </header>
 );
 
@@ -362,19 +366,28 @@ const GameOverPage = ({ onRestart }) => (
 // --- Main App Component ---
 function App() {
   const gameState = useGameState();
+  const [healthStatus, setHealthStatus] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    apiHealth()
+      .then((res) => { if (!cancelled) setHealthStatus(res.status); })
+      .catch(() => { if (!cancelled) setHealthStatus('unreachable'); });
+    return () => { cancelled = true; };
+  }, []);
   
   return (
     <>
       <AnimatedBackground />
       <BrowserRouter>
-        <AppContent {...gameState} />
+        <AppContent {...gameState} healthStatus={healthStatus} />
       </BrowserRouter>
     </>
   );
 }
 
 // Separate component to use hooks from react-router-dom
-const AppContent = ({ teamName, login, solvedPuzzles, solvePuzzle, revealedLetters, guessesLeft, submitFinalGuess, currentPuzzleId, gameWon, gameOver, restart }) => {
+const AppContent = ({ teamName, login, solvedPuzzles, solvePuzzle, revealedLetters, guessesLeft, submitFinalGuess, currentPuzzleId, gameWon, gameOver, restart, healthStatus }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -401,7 +414,7 @@ const AppContent = ({ teamName, login, solvedPuzzles, solvePuzzle, revealedLette
 
   return (
     <div className="relative min-h-screen flex items-center justify-center">
-      <Header teamName={teamName} />
+      <Header teamName={teamName} healthStatus={healthStatus} />
       <Routes>
         <Route path="/" element={<LoginPage onLogin={login} />} />
         <Route path="/dashboard" element={<DashboardPage teamName={teamName} solvedPuzzles={solvedPuzzles} revealedLetters={revealedLetters} currentPuzzleId={currentPuzzleId} guessesLeft={guessesLeft} onSubmitGuess={handleSubmitFinalGuess}/>} />
